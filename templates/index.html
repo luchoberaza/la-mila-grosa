@@ -1,0 +1,96 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h4 class="mb-0">Inicio</h4>
+    <div class="text-muted">
+      Total hoy ({{ hoy.replace("-", "/") }}): <strong>${{ "%.2f"|format(total_hoy) }}</strong>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-primary" href="{{ url_for('venta_nueva') }}">+ Nueva venta</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('ventas') }}">Ver ventas</a>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h6 class="mb-3">Resumen de hoy</h6>
+
+    <div class="table-responsive">
+      <table class="table align-middle">
+        <thead>
+          <tr>
+            <th>Producto</th>
+            <th class="text-center">Cantidad</th>
+            <th class="text-end">Total $</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in top %}
+          <tr data-producto="{{ r['nombre'] }}" data-total="{{ r['total'] }}">
+            <td>{{ r["nombre"] }}</td>
+            <td class="text-center">
+              <span class="qty text-muted">—</span>
+            </td>
+            <td class="text-end fw-bold">${{ "%.2f"|format(r["total"]) }}</td>
+          </tr>
+          {% endfor %}
+
+          {% if top|length == 0 %}
+          <tr>
+            <td colspan="3" class="text-center text-muted py-4">No hay ventas hoy.</td>
+          </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // Precios “LOCAL” para estimar cantidad desde total.
+  // (Si vendiste a Comercio, el total sigue bien, pero la cantidad estimada puede variar.
+  //  Para evitar crash y que se vea bien, esto alcanza.)
+  const PRECIOS = {
+    "Milanesa de Pollo": 280,
+    "Milanesa de Carne": 350,
+    "Jamón y Queso": 280,
+    "Medallón de Pollo": 240,
+    "Milanesa al Pan": 150
+  };
+
+  function f2(x){ return Number(x || 0).toFixed(2); }
+  function f3(x){ return Number(x || 0).toFixed(3); }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll("tr[data-producto][data-total]").forEach(tr => {
+      const prod = tr.getAttribute("data-producto");
+      const tot = Number(tr.getAttribute("data-total") || 0);
+      const price = PRECIOS[prod];
+
+      const qtyEl = tr.querySelector(".qty");
+      if(!qtyEl) return;
+
+      if(!price || tot <= 0){
+        qtyEl.textContent = "—";
+        qtyEl.classList.remove("text-muted");
+        return;
+      }
+
+      if(prod === "Milanesa al Pan"){
+        const u = Math.round(tot / price);
+        qtyEl.textContent = `${u} u`;
+      }else{
+        const kg = tot / price;
+        qtyEl.textContent = `${f3(kg)} kg`;
+      }
+      qtyEl.classList.remove("text-muted");
+    });
+  });
+</script>
+
+{% endblock %}

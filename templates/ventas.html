@@ -1,0 +1,261 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-3">
+  <div>
+    <h4 class="mb-0">Ventas</h4>
+    <div class="text-muted">
+      Total hoy ({{ hoy.replace("-", "/") }}): <strong>${{ "%.2f"|format(total_hoy) }}</strong>
+    </div>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-primary" href="{{ url_for('venta_nueva') }}">+ Nueva venta</a>
+    <a class="btn btn-outline-secondary" href="{{ url_for('index') }}">Inicio</a>
+    <button class="btn btn-danger" type="button" onclick="abrirModalVaciar()">Vaciar ventas</button>
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Fecha</th>
+            <th>Pago</th>
+            <th class="text-end">Total</th>
+            <th class="text-end">Pagó</th>
+            <th class="text-end">Vuelto</th>
+            <th></th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {% set current_day = none %}
+
+          {% for r in rows %}
+            {% set day = r["fecha"][:10] %}
+            {% if day != current_day %}
+              {% set current_day = day %}
+
+              {% if day == hoy %}
+                {% set group_label = "Hoy" %}
+              {% elif day == ayer %}
+                {% set group_label = "Ayer" %}
+              {% else %}
+                {% set group_label = day.replace("-", "/") %}
+              {% endif %}
+
+              <tr class="table-light">
+                <td colspan="7" class="fw-bold">{{ group_label }}</td>
+              </tr>
+            {% endif %}
+
+            {% set hhmm = r["fecha"][11:16] if r["fecha"]|length >= 16 else "" %}
+            {% set fecha_barras = day.replace("-", "/") %}
+            {% set fecha_show = (fecha_barras ~ " " ~ hhmm).strip() %}
+
+            <tr>
+              <td>{{ r["id"] }}</td>
+              <td>{{ fecha_show }}</td>
+              <td>{{ r["metodo_pago"] }}</td>
+              <td class="text-end fw-bold">${{ "%.2f"|format(r["total"]) }}</td>
+
+              <td class="text-end">
+                {% if r["monto_pagado"] is not none %}
+                  ${{ "%.2f"|format(r["monto_pagado"]) }}
+                {% endif %}
+              </td>
+
+              <td class="text-end">
+                {% if r["vuelto"] is not none %}
+                  ${{ "%.2f"|format(r["vuelto"]) }}
+                {% endif %}
+              </td>
+
+              <td class="text-end d-flex gap-2 justify-content-end">
+                <button class="btn btn-sm btn-outline-primary"
+                        type="button"
+                        onclick="abrirDetalles({{ r['id'] }})">
+                  Detalles
+                </button>
+
+                <form method="post" action="{{ url_for('borrar_venta', venta_id=r['id']) }}"
+                      onsubmit="return confirm('¿Borrar venta #{{ r['id'] }}?');">
+                  <button class="btn btn-sm btn-outline-danger" type="submit">Borrar</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+
+          {% if rows|length == 0 %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No hay ventas.</td>
+            </tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLES -->
+<div class="modal fade" id="modalDetalles" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Detalle de venta #<span id="detVentaId"></span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <!-- NOTA / COMENTARIO -->
+        <div id="detNotaWrap" class="mb-3" style="display:none;">
+          <div class="fw-bold mb-1">Detalle:</div>
+          <div id="detNota" class="p-2 rounded" style="background:#f8f9fa;"></div>
+        </div>
+
+        <!-- ITEMS -->
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th class="text-end">Importe</th>
+                <th class="text-end">Cantidad</th>
+              </tr>
+            </thead>
+            <tbody id="detBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Precios para calcular cantidad (kg o u) desde el importe
+  const PRECIO = {
+    "Milanesa de Pollo": 280,
+    "Milanesa de Carne": 350,
+    "Jamón y Queso": 280,
+    "Medallón de Pollo": 240,
+    "Milanesa al Pan": 150
+  };
+
+  // items por venta
+  const ITEMS_BY_VENTA = {
+    {% for vid, items in items_by_venta.items() %}
+      "{{ vid }}": [
+        {% for it in items %}
+          {"producto": {{ it["producto"]|tojson }}, "importe": {{ it["importe"] }} }{{ "," if not loop.last else "" }}
+        {% endfor %}
+      ]{{ "," if not loop.last else "" }}
+    {% endfor %}
+  };
+
+  // nota por venta (sale de rows)
+  const NOTA_BY_VENTA = {
+    {% for r in rows %}
+      "{{ r['id'] }}": {{ (r["nota"] or "")|tojson }}{{ "," if not loop.last else "" }}
+    {% endfor %}
+  };
+
+  function fmt2(x){ return Number(x || 0).toFixed(2); }
+  function fmt3(x){ return Number(x || 0).toFixed(3); }
+
+  function cantidadDesdeImporte(producto, importe){
+    const p = PRECIO[producto];
+    if(!p || !importe) return "";
+    const q = Number(importe) / Number(p);
+
+    if(producto === "Milanesa al Pan"){
+      return `${Math.round(q)} u`;
+    }
+    return `${fmt3(q)} kg`;
+  }
+
+  function abrirDetalles(ventaId) {
+    document.getElementById("detVentaId").textContent = ventaId;
+
+    // mostrar nota si existe
+    const nota = (NOTA_BY_VENTA[String(ventaId)] || "").trim();
+    const wrap = document.getElementById("detNotaWrap");
+    const box = document.getElementById("detNota");
+
+    if(nota.length > 0){
+      box.textContent = nota;
+      wrap.style.display = "";
+    }else{
+      box.textContent = "";
+      wrap.style.display = "none";
+    }
+
+    // items
+    const body = document.getElementById("detBody");
+    body.innerHTML = "";
+
+    const items = ITEMS_BY_VENTA[String(ventaId)] || [];
+    if (items.length === 0) {
+      body.innerHTML = `<tr><td colspan="3" class="text-center text-muted py-3">Sin items.</td></tr>`;
+    } else {
+      let total = 0;
+      for (const it of items) {
+        const imp = Number(it.importe || 0);
+        total += imp;
+        const cant = cantidadDesdeImporte(it.producto, imp);
+
+        body.innerHTML += `
+          <tr>
+            <td>${it.producto}</td>
+            <td class="text-end">$${fmt2(imp)}</td>
+            <td class="text-end">${cant}</td>
+          </tr>
+        `;
+      }
+      body.innerHTML += `
+        <tr class="table-light">
+          <td class="fw-bold text-end">TOTAL</td>
+          <td class="text-end fw-bold">$${fmt2(total)}</td>
+          <td></td>
+        </tr>
+      `;
+    }
+
+    new bootstrap.Modal(document.getElementById("modalDetalles")).show();
+  }
+</script>
+
+<!-- MODAL VACIAR -->
+<div class="modal fade" id="modalVaciar" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <form method="post" action="{{ url_for('borrar_todo') }}" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title text-danger">⚠ Vaciar todas las ventas</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <p class="mb-2">Esto borra <strong>todas</strong> las ventas. No se puede deshacer.</p>
+        <label class="form-label">Contraseña</label>
+        <input type="password" name="password" class="form-control" required>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-danger">Vaciar todo</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  function abrirModalVaciar() {
+    new bootstrap.Modal(document.getElementById("modalVaciar")).show();
+  }
+</script>
+
+{% endblock %}

@@ -1,0 +1,526 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<style>
+  :root{
+    --bordo:#7a0b1b;
+    --bordo-2:#5f0714;
+  }
+
+  .pos-wrap { max-width: 1200px; margin: 0 auto; }
+
+  .pos-layout{
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 16px;
+    align-items: start;
+  }
+  @media (max-width: 992px){
+    .pos-layout{ grid-template-columns: 1fr; }
+    .pos-side{ order: 2; }
+  }
+
+  .pos-input { font-size: 1.15rem; padding: .75rem .85rem; border-radius: 14px; }
+  .cat-title { font-size: .85rem; letter-spacing: .05em; color:#6c757d; margin: .6rem 0 .25rem; }
+
+  .mode-btn{
+    border-radius: 999px;
+    border: 2px solid var(--bordo) !important;
+    font-weight: 700;
+    padding: .45rem 1.1rem;
+  }
+  .mode-btn.active{
+    background: var(--bordo) !important;
+    color: #fff !important;
+  }
+  .mode-btn.inactive{
+    background: #fff !important;
+    color: var(--bordo) !important;
+  }
+  .mode-btn.active:hover{ background: var(--bordo-2) !important; }
+  .mode-btn.inactive:hover{ background: #fff3f5 !important; }
+
+  .producto-btn{
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+    color: #fff;
+    border-radius: 14px;
+  }
+  .producto-btn .fw-bold{ color:#fff; }
+  .producto-btn .opacity-75{ color: rgba(255,255,255,0.85) !important; }
+  .producto-btn:hover{
+    background-color:#0b5ed7;
+    border-color:#0b5ed7;
+  }
+  .producto-btn.selected{
+    background-color:#084298 !important;
+    border-color:#084298 !important;
+  }
+
+  .mini-empty{ color:#adb5bd; font-size:.95rem; }
+  .mini-line{
+    display:flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: .95rem;
+    padding: 6px 0;
+    border-bottom: 1px dashed #eee;
+  }
+  .mini-line:last-child{ border-bottom: none; }
+  .mini-left{ overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .mini-right{ font-variant-numeric: tabular-nums; font-weight: 700; }
+
+  /* Banner errores */
+  .errbox{
+    display:none;
+    border-radius: 14px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: #fff3cd;
+    border: 1px solid #ffe69c;
+    color: #664d03;
+  }
+  .errbox strong{ margin-right: 6px; }
+</style>
+
+<div class="pos-wrap">
+
+  <div class="pos-layout">
+
+    <!-- CARD IZQUIERDA -->
+    <div class="card shadow-sm">
+      <div class="card-body">
+
+        <div class="mb-2">
+          <h5 class="mb-1">Nueva venta</h5>
+          <div class="text-muted small">Enter agrega · Ctrl+Enter guarda</div>
+        </div>
+
+        <!-- aviso (no reiniciar) -->
+        <div id="errbox" class="errbox">
+          <strong>Ojo:</strong><span id="errmsg"></span>
+        </div>
+
+        <!-- Local / Comercio -->
+        <div class="d-flex gap-2 mb-2">
+          <button type="button" class="mode-btn active" id="btnModoLocal">Local</button>
+          <button type="button" class="mode-btn inactive" id="btnModoComercio">Comercio</button>
+        </div>
+
+        <!-- MILANESAS -->
+        <div class="cat-title">MILANESAS</div>
+        <div class="row g-2 mb-2">
+          <div class="col-6 col-md-4">
+            <button class="btn w-100 py-3 producto-btn" data-producto="Milanesa de Pollo">
+              <div class="fw-bold">Pollo</div>
+              <div class="small opacity-75" data-price-label>$/kg</div>
+            </button>
+          </div>
+          <div class="col-6 col-md-4">
+            <button class="btn w-100 py-3 producto-btn" data-producto="Milanesa de Carne">
+              <div class="fw-bold">Carne</div>
+              <div class="small opacity-75" data-price-label>$/kg</div>
+            </button>
+          </div>
+          <div class="col-12 col-md-4">
+            <button class="btn w-100 py-3 producto-btn" data-producto="Jamón y Queso">
+              <div class="fw-bold">Jamón y Queso</div>
+              <div class="small opacity-75" data-price-label>$/kg</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- PRODUCTOS -->
+        <div class="cat-title">PRODUCTOS</div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <button class="btn w-100 py-3 producto-btn" data-producto="Medallón de Pollo">
+              <div class="fw-bold">Medallón</div>
+              <div class="small opacity-75" data-price-label>$/kg</div>
+            </button>
+          </div>
+          <div class="col-6">
+            <button class="btn w-100 py-3 producto-btn" data-producto="Milanesa al Pan">
+              <div class="fw-bold">Mila al Pan</div>
+              <div class="small opacity-75" data-price-label>$/u</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- ENTRADA -->
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-12 col-md-5">
+            <input class="form-control pos-input" id="productoSeleccionado" disabled value="(tocá un producto)">
+          </div>
+          <div class="col-7 col-md-3">
+            <input class="form-control pos-input" id="importe" type="number" step="0.01" placeholder="$">
+          </div>
+          <div class="col-5 col-md-2">
+            <input class="form-control pos-input" id="kgAuto" disabled value="0.000">
+          </div>
+          <div class="col-12 col-md-2 d-grid">
+            <button type="button" class="btn btn-success py-3" id="btnAgregar">Agregar</button>
+          </div>
+        </div>
+
+        <!-- FORM -->
+        <form method="post" id="ventaForm">
+          <input type="hidden" name="items_json" id="items_json">
+          <input type="hidden" name="metodo_pago" id="metodo_pago" value="EFECTIVO">
+
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fs-4">
+              Total: <strong>$<span id="total">0.00</span></strong>
+            </div>
+          </div>
+
+          <div class="d-flex gap-2 mb-2">
+            <button type="button" class="btn btn-success flex-fill" id="btnEfectivo">Efectivo</button>
+            <button type="button" class="btn btn-outline-primary flex-fill" id="btnPOS">POS</button>
+          </div>
+
+          <div class="row g-2 align-items-end">
+            <div class="col-7">
+              <input class="form-control pos-input" id="monto_pagado"
+                     name="monto_pagado" type="number" step="0.01" placeholder="Pagó">
+            </div>
+            <div class="col-5">
+              <input class="form-control pos-input" id="vueltoView" disabled value="$0.00">
+              <div class="text-danger small" id="faltante" style="display:none;">Falta dinero</div>
+            </div>
+          </div>
+
+          <div class="mt-2">
+            <input class="form-control" type="text" name="nota" id="nota" placeholder="Nota (opcional)">
+          </div>
+
+          <div class="mt-2 d-grid">
+            <button class="btn btn-primary btn-lg" id="btnGuardar">Guardar venta</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+
+    <!-- CARD DERECHA: AGREGADO -->
+    <div class="pos-side">
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <h6 class="mb-2 text-uppercase" style="letter-spacing:.06em;color:#6c757d;">Agregado</h6>
+          <div id="miniList" class="mini-empty">Nada todavía</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  const PRECIOS_LOCAL = {
+    "Milanesa de Pollo": 280,
+    "Milanesa de Carne": 350,
+    "Jamón y Queso": 280,
+    "Medallón de Pollo": 240,
+    "Milanesa al Pan": 150
+  };
+
+  const PRECIOS_COMERCIO = {
+    "Milanesa de Pollo": 230,
+    "Milanesa de Carne": 320,
+    "Jamón y Queso": 230,
+    "Medallón de Pollo": 180,
+    "Milanesa al Pan": 150
+  };
+
+  let modo = "LOCAL";
+  let seleccionado = null;
+  let items = []; // {p, imp, precio}
+
+  const botones = [...document.querySelectorAll(".producto-btn")];
+  const prodSel = document.getElementById("productoSeleccionado");
+  const importe = document.getElementById("importe");
+  const kgAuto = document.getElementById("kgAuto");
+  const totalLbl = document.getElementById("total");
+  const itemsJson = document.getElementById("items_json");
+  const miniList = document.getElementById("miniList");
+
+  const metodoPago = document.getElementById("metodo_pago");
+  const montoPagado = document.getElementById("monto_pagado");
+  const vueltoView = document.getElementById("vueltoView");
+  const faltante = document.getElementById("faltante");
+
+  const btnModoLocal = document.getElementById("btnModoLocal");
+  const btnModoComercio = document.getElementById("btnModoComercio");
+
+  const errbox = document.getElementById("errbox");
+  const errmsg = document.getElementById("errmsg");
+  const nota = document.getElementById("nota");
+  const ventaForm = document.getElementById("ventaForm");
+
+  const STORAGE_KEY = "mila_pos_state_v1";
+
+  function preciosActivos(){ return modo === "COMERCIO" ? PRECIOS_COMERCIO : PRECIOS_LOCAL; }
+  function money(x){ return (+x).toFixed(2); }
+  function kgfmt(x){ return (+x).toFixed(3); }
+
+  function showError(msg){
+    errmsg.textContent = msg;
+    errbox.style.display = "";
+    errbox.scrollIntoView({behavior:"smooth", block:"start"});
+  }
+  function clearError(){
+    errbox.style.display = "none";
+    errmsg.textContent = "";
+  }
+
+  function etiquetaCorta(prod){
+    if(prod === "Milanesa de Pollo") return "Mila Pollo";
+    if(prod === "Milanesa de Carne") return "Mila Carne";
+    if(prod === "Jamón y Queso") return "Mila JyQ";
+    if(prod === "Medallón de Pollo") return "Medallón";
+    if(prod === "Milanesa al Pan") return "Mila al Pan";
+    return prod;
+  }
+
+  function saveState(){
+    const state = {
+      modo,
+      metodo_pago: metodoPago.value,
+      monto_pagado: montoPagado.value || "",
+      nota: nota.value || "",
+      items
+    };
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function loadState(){
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if(!raw) return;
+    try{
+      const st = JSON.parse(raw);
+      if(st && Array.isArray(st.items)){
+        items = st.items;
+        setModo(st.modo === "COMERCIO" ? "COMERCIO" : "LOCAL");
+        setPago(st.metodo_pago === "POS" ? "POS" : "EFECTIVO");
+        montoPagado.value = st.monto_pagado || "";
+        nota.value = st.nota || "";
+        render();
+      }
+    }catch(e){}
+  }
+
+  function setModo(nuevo){
+    modo = nuevo;
+
+    if(modo === "LOCAL"){
+      btnModoLocal.classList.add("active"); btnModoLocal.classList.remove("inactive");
+      btnModoComercio.classList.add("inactive"); btnModoComercio.classList.remove("active");
+    }else{
+      btnModoComercio.classList.add("active"); btnModoComercio.classList.remove("inactive");
+      btnModoLocal.classList.add("inactive"); btnModoLocal.classList.remove("active");
+    }
+
+    const p = preciosActivos();
+    botones.forEach(b=>{
+      const prod = b.dataset.producto;
+      const label = b.querySelector("[data-price-label]");
+      if(!label) return;
+      label.textContent = (prod === "Milanesa al Pan") ? `$${p[prod]}/u` : `$${p[prod]}/kg`;
+    });
+
+    if(seleccionado){
+      seleccionado.precio = p[seleccionado.p];
+      prodSel.value = `${seleccionado.p} ($${seleccionado.precio}/${seleccionado.p==="Milanesa al Pan"?"u":"kg"})`;
+      calcCantidad();
+    }
+
+    saveState();
+  }
+
+  function setProducto(prod, btn){
+    clearError();
+    const p = preciosActivos();
+    seleccionado = { p: prod, precio: p[prod] };
+
+    botones.forEach(b=>b.classList.remove("selected"));
+    btn.classList.add("selected");
+
+    prodSel.value = `${prod} ($${seleccionado.precio}/${prod==="Milanesa al Pan" ? "u" : "kg"})`;
+    importe.focus(); importe.select();
+    calcCantidad();
+  }
+
+  function calcCantidad(){
+    if(!seleccionado){ kgAuto.value="0.000"; return; }
+    const i = +importe.value || 0;
+    if(i <= 0){ kgAuto.value="0.000"; return; }
+
+    if(seleccionado.p === "Milanesa al Pan"){
+      kgAuto.value = Math.round(i / seleccionado.precio) + " u";
+      return;
+    }
+    kgAuto.value = kgfmt(i / seleccionado.precio);
+  }
+
+  function addItem(){
+    clearError();
+    if(!seleccionado){
+      showError("Elegí un producto primero.");
+      return;
+    }
+    const imp = +importe.value || 0;
+    if(imp <= 0){
+      showError("Ingresá un importe válido para agregar.");
+      return;
+    }
+
+    const idx = items.findIndex(x => x.p === seleccionado.p);
+    if(idx >= 0){
+      items[idx].imp += imp;
+      items[idx].precio = seleccionado.precio;
+    }else{
+      items.push({ p: seleccionado.p, imp: imp, precio: seleccionado.precio });
+    }
+
+    importe.value="";
+    calcCantidad();
+    render();
+    importe.focus();
+  }
+
+  function render(){
+    let total = 0;
+    items.forEach(it => total += it.imp);
+    totalLbl.textContent = money(total);
+
+    itemsJson.value = JSON.stringify(items.map(x => ({ producto: x.p, importe: x.imp })));
+
+    if(items.length === 0){
+      miniList.className = "mini-empty";
+      miniList.textContent = "Nada todavía";
+    }else{
+      miniList.className = "";
+      let html = "";
+      items.forEach(it=>{
+        const q = (it.p === "Milanesa al Pan")
+          ? `${Math.round(it.imp / it.precio)} u`
+          : `${kgfmt(it.imp / it.precio)} kg`;
+
+        html += `
+          <div class="mini-line">
+            <div class="mini-left">${etiquetaCorta(it.p)}</div>
+            <div class="mini-right">${q}</div>
+          </div>
+        `;
+      });
+      miniList.innerHTML = html;
+    }
+
+    if(metodoPago.value === "POS"){
+      montoPagado.value = money(total);
+    }
+    calcPago();
+    saveState();
+  }
+
+  function setPago(m){
+    clearError();
+    metodoPago.value = m;
+    if(m === "POS"){
+      montoPagado.value = money(totalLbl.textContent);
+      montoPagado.readOnly = true;
+      vueltoView.value = "$0.00";
+      faltante.style.display = "none";
+    }else{
+      montoPagado.readOnly = false;
+      // no borro el valor si ya está, lo dejo (por si cambiaste sin querer)
+    }
+    montoPagado.focus();
+    saveState();
+  }
+
+  function calcPago(){
+    if(metodoPago.value !== "EFECTIVO") return;
+    const t = +totalLbl.textContent || 0;
+    const p = +montoPagado.value || 0;
+    const v = p - t;
+
+    if(p === 0){ vueltoView.value="$0.00"; faltante.style.display="none"; }
+    else if(v < 0){ vueltoView.value="$0.00"; faltante.style.display="block"; }
+    else { vueltoView.value = "$" + money(v); faltante.style.display="none"; }
+  }
+
+  function validarAntesDeGuardar(){
+    const total = +totalLbl.textContent || 0;
+    if(items.length === 0 || total <= 0){
+      showError("No hay nada agregado. Primero agregá algún producto.");
+      return false;
+    }
+    if(metodoPago.value === "EFECTIVO"){
+      const pago = +montoPagado.value || 0;
+      if(pago <= 0){
+        showError("En efectivo tenés que poner cuánto pagó.");
+        return false;
+      }
+      if(pago < total){
+        showError(`Falta dinero: pagó $${money(pago)} y el total es $${money(total)}.`);
+        return false;
+      }
+    }else{
+      // POS: el monto se autocompleta, pero por las dudas:
+      if((+montoPagado.value || 0) !== total){
+        montoPagado.value = money(total);
+      }
+    }
+    return true;
+  }
+
+  // Eventos
+  botones.forEach(b => b.onclick = () => setProducto(b.dataset.producto, b));
+  importe.oninput = calcCantidad;
+  document.getElementById("btnAgregar").onclick = addItem;
+
+  document.getElementById("btnEfectivo").onclick = () => setPago("EFECTIVO");
+  document.getElementById("btnPOS").onclick = () => setPago("POS");
+  montoPagado.oninput = () => { calcPago(); saveState(); };
+  nota.oninput = saveState;
+
+  btnModoLocal.onclick = () => setModo("LOCAL");
+  btnModoComercio.onclick = () => setModo("COMERCIO");
+
+  // Interceptar submit para NO reiniciar
+  ventaForm.addEventListener("submit", (e) => {
+    clearError();
+    saveState();
+    if(!validarAntesDeGuardar()){
+      e.preventDefault();
+      return;
+    }
+    // si pasa validación, dejamos que envíe.
+    // (Si el backend igual devuelve error y vuelve a esta página, el estado se restaura)
+  });
+
+  document.addEventListener("keydown", e => {
+    if(e.ctrlKey && e.key === "Enter"){
+      e.preventDefault();
+      // NO reinicio nada acá: solo intento guardar, pero validando antes
+      if(validarAntesDeGuardar()){
+        // opcional: vuelve a LOCAL al guardar
+        setModo("LOCAL");
+        ventaForm.requestSubmit();
+      }
+    }
+    if(e.key === "Enter" && document.activeElement === importe){
+      e.preventDefault();
+      addItem();
+    }
+  });
+
+  // Init
+  setPago("EFECTIVO");
+  setModo("LOCAL");
+  loadState();   // restaura si había algo en memoria
+  render();
+</script>
+
+{% endblock %}
